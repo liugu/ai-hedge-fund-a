@@ -1,45 +1,45 @@
-# v2 — Quantitative Trading Stack
+# v2 — 量化交易框架
 
-> **Status: Work in Progress** — This module is under active development and is not yet integrated into the main application.
+> **状态：开发中** — 本模块正在积极开发中，尚未集成到主应用程序。
 
-v2 is a ground-up rebuild of the AI hedge fund's core engine, replacing personality-based agents with a principled quantitative pipeline.
+v2是AI对冲基金核心引擎的全新重构，用基于原则的量化流程替代基于人格的代理。
 
-## Architecture
+## 架构
 
 ```
-Data (FD API) → Signals → Features → Portfolio Construction → Risk Management → Execution
+数据（FD API）→ 信号 → 特征 → 组合构建 → 风险管理 → 执行
 ```
 
-| Module | Description |
-|--------|-------------|
-| `data/` | Financial Datasets API client and caching layer |
-| `event_study/` | Event study framework — CARs, market model, significance testing |
-| `signals/` | Quantitative signal generation (`BaseSignal` ABC with `[-1, +1]` output) |
-| `features/` | Feature engineering — earnings surprise, KPI momentum, cross-sector lead-lag |
-| `validation/` | Combinatorial Purged Cross-Validation (CPCV), Probability of Backtest Overfitting (PBO) |
-| `backtesting/` | Vectorized backtester with point-in-time constraints and transaction cost modeling |
-| `portfolio/` | Portfolio optimization — mean-variance, Black-Litterman, risk parity, covariance cleaning |
-| `risk/` | Risk management — drawdown controls, position sizing, correlation monitoring, stress testing |
-| `pipeline/` | Execution simulation — market impact (Almgren-Chriss), fill probability, capacity analysis |
+| 模块 | 描述 |
+|------|------|
+| `data/` | Financial Datasets API客户端和缓存层 |
+| `event_study/` | 事件研究框架 — 累积异常收益、市场模型、显著性检验 |
+| `signals/` | 量化信号生成（`BaseSignal`抽象基类，输出范围`[-1, +1]`） |
+| `features/` | 特征工程 — 盈余惊喜、KPI动量、跨行业领先滞后 |
+| `validation/` | 组合清除交叉验证（CPCV）、回测过拟合概率（PBO） |
+| `backtesting/` | 向量化回测器，支持时点约束和交易成本建模 |
+| `portfolio/` | 组合优化 — 均值方差、Black-Litterman、风险平价、协方差清洗 |
+| `risk/` | 风险管理 — 回撤控制、仓位管理、相关性监控、压力测试 |
+| `pipeline/` | 执行模拟 — 市场冲击（Almgren-Chriss）、成交概率、容量分析 |
 
-## Key Design Decisions
+## 关键设计决策
 
-- **Methodology over personality.** Agents are structured around quantitative methods (momentum, fundamental, risk), not famous investor personas.
-- **Costs from day one.** Every backtest includes a transaction cost model. No frictionless fantasies.
-- **Validation built in.** CPCV and PBO are first-class citizens, not afterthoughts. If a signal can't survive combinatorial purged validation, it doesn't ship.
-- **Point-in-time by construction.** The data layer enforces that no future information leaks into historical analysis.
-- **Daily frequency.** Built for daily-bar strategies on US equities using [Financial Datasets](https://financialdatasets.ai) as the sole data provider.
+- **方法论优先于人格。** 代理围绕量化方法（动量、基本面、风险）构建，而非著名投资者人格。
+- **从一开始就考虑成本。** 每个回测都包含交易成本模型。拒绝无摩擦的幻想。
+- **验证内置。** CPCV和PBO是一等公民，而非事后补充。如果信号无法通过组合清除验证，就不会发布。
+- **时点约束构造。** 数据层确保未来信息不会泄露到历史分析中。
+- **日频数据。** 为美股日频策略构建，使用[Financial Datasets](https://financialdatasets.ai)作为唯一数据提供商。
 
-## Data Models
+## 数据模型
 
-The core data contracts live in `models.py`:
+核心数据契约位于`models.py`：
 
-- `SignalResult` — output of any quantitative signal (`value` in `[-1, +1]`)
-- `QuantSignals` — all signals for a ticker on a given date
-- `PortfolioTarget` — target portfolio weights from the optimizer
-- `TradeOrder` — a single trade instruction
-- `ExecutionResult` — batch of trades with estimated costs
+- `SignalResult` — 任何量化信号的输出（`value`在`[-1, +1]`范围内）
+- `QuantSignals` — 某只股票在某日期的所有信号
+- `PortfolioTarget` — 优化器输出的目标组合权重
+- `TradeOrder` — 单笔交易指令
+- `ExecutionResult` — 一批交易及其估计成本
 
-## Contributing
+## 贡献
 
-v2 is in early development. If you'd like to contribute, start by reading `signals/base.py` to understand the signal interface, then check open issues tagged `v2`.
+v2处于早期开发阶段。如果您想贡献，请先阅读`signals/base.py`了解信号接口，然后查看标记为`v2`的开放issue。

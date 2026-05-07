@@ -14,14 +14,14 @@ from src.utils.progress import progress
 
 def safe_float(value, default=0.0):
     """
-    Safely convert a value to float, handling NaN cases
-    
-    Args:
-        value: The value to convert (can be pandas scalar, numpy value, etc.)
-        default: Default value to return if the input is NaN or invalid
-    
-    Returns:
-        float: The converted value or default if NaN/invalid
+    安全地将值转换为浮点数，处理NaN情况
+
+    参数：
+        value: 要转换的值（可以是pandas标量、numpy值等）
+        default: 如果输入为NaN或无效时返回的默认值
+
+    返回：
+        float: 转换后的值或默认值（如果NaN/无效）
     """
     try:
         if pd.isna(value) or np.isnan(value):
@@ -31,28 +31,28 @@ def safe_float(value, default=0.0):
         return default
 
 
-##### Technical Analyst #####
+##### 技术分析师代理 #####
 def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analyst_agent"):
     """
-    Sophisticated technical analysis system that combines multiple trading strategies for multiple tickers:
-    1. Trend Following
-    2. Mean Reversion
-    3. Momentum
-    4. Volatility Analysis
-    5. Statistical Arbitrage Signals
+    复杂的技术分析系统，结合多种交易策略分析多只股票：
+    1. 趋势跟踪
+    2. 均值回归
+    3. 动量分析
+    4. 波动率分析
+    5. 统计套利信号
     """
     data = state["data"]
     start_date = data["start_date"]
     end_date = data["end_date"]
     tickers = data["tickers"]
     api_key = get_api_key_from_state(state, "FINANCIAL_DATASETS_API_KEY")
-    # Initialize analysis for each ticker
+    # 初始化每只股票的分析
     technical_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Analyzing price data")
+        progress.update_status(agent_id, ticker, "分析价格数据")
 
-        # Get the historical price data
+        # 获取历史价格数据
         prices = get_prices(
             ticker=ticker,
             start_date=start_date,
@@ -61,37 +61,37 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
         )
 
         if not prices:
-            progress.update_status(agent_id, ticker, "Failed: No price data found")
+            progress.update_status(agent_id, ticker, "失败：未找到价格数据")
             continue
 
-        # Convert prices to a DataFrame
+        # 将价格转换为DataFrame
         prices_df = prices_to_df(prices)
 
-        progress.update_status(agent_id, ticker, "Calculating trend signals")
+        progress.update_status(agent_id, ticker, "计算趋势信号")
         trend_signals = calculate_trend_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Calculating mean reversion")
+        progress.update_status(agent_id, ticker, "计算均值回归")
         mean_reversion_signals = calculate_mean_reversion_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Calculating momentum")
+        progress.update_status(agent_id, ticker, "计算动量")
         momentum_signals = calculate_momentum_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Analyzing volatility")
+        progress.update_status(agent_id, ticker, "分析波动率")
         volatility_signals = calculate_volatility_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Statistical analysis")
+        progress.update_status(agent_id, ticker, "统计分析")
         stat_arb_signals = calculate_stat_arb_signals(prices_df)
 
-        # Combine all signals using a weighted ensemble approach
+        # 使用加权集成方法组合所有信号
         strategy_weights = {
-            "trend": 0.25,
-            "mean_reversion": 0.20,
-            "momentum": 0.25,
-            "volatility": 0.15,
-            "stat_arb": 0.15,
+            "trend": 0.25,  # 趋势
+            "mean_reversion": 0.20,  # 均值回归
+            "momentum": 0.25,  # 动量
+            "volatility": 0.15,  # 波动率
+            "stat_arb": 0.15,  # 统计套利
         }
 
-        progress.update_status(agent_id, ticker, "Combining signals")
+        progress.update_status(agent_id, ticker, "组合信号")
         combined_signal = weighted_signal_combination(
             {
                 "trend": trend_signals,
@@ -103,53 +103,53 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
             strategy_weights,
         )
 
-        # Generate detailed analysis report for this ticker
+        # 生成该股票的详细分析报告
         technical_analysis[ticker] = {
             "signal": combined_signal["signal"],
             "confidence": round(combined_signal["confidence"] * 100),
             "reasoning": {
-                "trend_following": {
+                "trend_following": {  # 趋势跟踪
                     "signal": trend_signals["signal"],
                     "confidence": round(trend_signals["confidence"] * 100),
                     "metrics": normalize_pandas(trend_signals["metrics"]),
                 },
-                "mean_reversion": {
+                "mean_reversion": {  # 均值回归
                     "signal": mean_reversion_signals["signal"],
                     "confidence": round(mean_reversion_signals["confidence"] * 100),
                     "metrics": normalize_pandas(mean_reversion_signals["metrics"]),
                 },
-                "momentum": {
+                "momentum": {  # 动量
                     "signal": momentum_signals["signal"],
                     "confidence": round(momentum_signals["confidence"] * 100),
                     "metrics": normalize_pandas(momentum_signals["metrics"]),
                 },
-                "volatility": {
+                "volatility": {  # 波动率
                     "signal": volatility_signals["signal"],
                     "confidence": round(volatility_signals["confidence"] * 100),
                     "metrics": normalize_pandas(volatility_signals["metrics"]),
                 },
-                "statistical_arbitrage": {
+                "statistical_arbitrage": {  # 统计套利
                     "signal": stat_arb_signals["signal"],
                     "confidence": round(stat_arb_signals["confidence"] * 100),
                     "metrics": normalize_pandas(stat_arb_signals["metrics"]),
                 },
             },
         }
-        progress.update_status(agent_id, ticker, "Done", analysis=json.dumps(technical_analysis, indent=4))
+        progress.update_status(agent_id, ticker, "完成", analysis=json.dumps(technical_analysis, indent=4))
 
-    # Create the technical analyst message
+    # 创建技术分析师消息
     message = HumanMessage(
         content=json.dumps(technical_analysis),
         name=agent_id,
     )
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(technical_analysis, "Technical Analyst")
+        show_agent_reasoning(technical_analysis, "技术分析师")
 
-    # Add the signal to the analyst_signals list
+    # 将信号添加到analyst_signals列表
     state["data"]["analyst_signals"][agent_id] = technical_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {
         "messages": state["messages"] + [message],
@@ -159,21 +159,21 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
 
 def calculate_trend_signals(prices_df):
     """
-    Advanced trend following strategy using multiple timeframes and indicators
+    使用多时间框架和指标的高级趋势跟踪策略
     """
-    # Calculate EMAs for multiple timeframes
+    # 计算多时间框架的EMA
     ema_8 = calculate_ema(prices_df, 8)
     ema_21 = calculate_ema(prices_df, 21)
     ema_55 = calculate_ema(prices_df, 55)
 
-    # Calculate ADX for trend strength
+    # 计算ADX用于趋势强度
     adx = calculate_adx(prices_df, 14)
 
-    # Determine trend direction and strength
+    # 确定趋势方向和强度
     short_trend = ema_8 > ema_21
     medium_trend = ema_21 > ema_55
 
-    # Combine signals with confidence weighting
+    # 使用置信度加权组合信号
     trend_strength = adx["adx"].iloc[-1] / 100.0
 
     if short_trend.iloc[-1] and medium_trend.iloc[-1]:
@@ -198,24 +198,24 @@ def calculate_trend_signals(prices_df):
 
 def calculate_mean_reversion_signals(prices_df):
     """
-    Mean reversion strategy using statistical measures and Bollinger Bands
+    使用统计测量和布林带的均值回归策略
     """
-    # Calculate z-score of price relative to moving average
+    # 计算价格相对于移动平均线的z分数
     ma_50 = prices_df["close"].rolling(window=50).mean()
     std_50 = prices_df["close"].rolling(window=50).std()
     z_score = (prices_df["close"] - ma_50) / std_50
 
-    # Calculate Bollinger Bands
+    # 计算布林带
     bb_upper, bb_lower = calculate_bollinger_bands(prices_df)
 
-    # Calculate RSI with multiple timeframes
+    # 计算多时间框架的RSI
     rsi_14 = calculate_rsi(prices_df, 14)
     rsi_28 = calculate_rsi(prices_df, 28)
 
-    # Mean reversion signals
+    # 均值回归信号
     price_vs_bb = (prices_df["close"].iloc[-1] - bb_lower.iloc[-1]) / (bb_upper.iloc[-1] - bb_lower.iloc[-1])
 
-    # Combine signals
+    # 组合信号
     if z_score.iloc[-1] < -2 and price_vs_bb < 0.2:
         signal = "bullish"
         confidence = min(abs(z_score.iloc[-1]) / 4, 1.0)
@@ -240,25 +240,25 @@ def calculate_mean_reversion_signals(prices_df):
 
 def calculate_momentum_signals(prices_df):
     """
-    Multi-factor momentum strategy
+    多因子动量策略
     """
-    # Price momentum
+    # 价格动量
     returns = prices_df["close"].pct_change()
     mom_1m = returns.rolling(21).sum()
     mom_3m = returns.rolling(63).sum()
     mom_6m = returns.rolling(126).sum()
 
-    # Volume momentum
+    # 成交量动量
     volume_ma = prices_df["volume"].rolling(21).mean()
     volume_momentum = prices_df["volume"] / volume_ma
 
-    # Relative strength
-    # (would compare to market/sector in real implementation)
+    # 相对强度
+    # （实际实现中会比较市场/行业）
 
-    # Calculate momentum score
+    # 计算动量得分
     momentum_score = (0.4 * mom_1m + 0.3 * mom_3m + 0.3 * mom_6m).iloc[-1]
 
-    # Volume confirmation
+    # 成交量确认
     volume_confirmation = volume_momentum.iloc[-1] > 1.0
 
     if momentum_score > 0.05 and volume_confirmation:
@@ -285,34 +285,34 @@ def calculate_momentum_signals(prices_df):
 
 def calculate_volatility_signals(prices_df):
     """
-    Volatility-based trading strategy
+    基于波动率的交易策略
     """
-    # Calculate various volatility metrics
+    # 计算各种波动率指标
     returns = prices_df["close"].pct_change()
 
-    # Historical volatility
+    # 历史波动率
     hist_vol = returns.rolling(21).std() * math.sqrt(252)
 
-    # Volatility regime detection
+    # 波动率regime检测
     vol_ma = hist_vol.rolling(63).mean()
     vol_regime = hist_vol / vol_ma
 
-    # Volatility mean reversion
+    # 波动率均值回归
     vol_z_score = (hist_vol - vol_ma) / hist_vol.rolling(63).std()
 
-    # ATR ratio
+    # ATR比率
     atr = calculate_atr(prices_df)
     atr_ratio = atr / prices_df["close"]
 
-    # Generate signal based on volatility regime
+    # 基于波动率regime生成信号
     current_vol_regime = vol_regime.iloc[-1]
     vol_z = vol_z_score.iloc[-1]
 
     if current_vol_regime < 0.8 and vol_z < -1:
-        signal = "bullish"  # Low vol regime, potential for expansion
+        signal = "bullish"  # 低波动regime，可能扩张
         confidence = min(abs(vol_z) / 3, 1.0)
     elif current_vol_regime > 1.2 and vol_z > 1:
-        signal = "bearish"  # High vol regime, potential for contraction
+        signal = "bearish"  # 高波动regime，可能收缩
         confidence = min(abs(vol_z) / 3, 1.0)
     else:
         signal = "neutral"
@@ -332,22 +332,22 @@ def calculate_volatility_signals(prices_df):
 
 def calculate_stat_arb_signals(prices_df):
     """
-    Statistical arbitrage signals based on price action analysis
+    基于价格行为分析的统计套利信号
     """
-    # Calculate price distribution statistics
+    # 计算价格分布统计
     returns = prices_df["close"].pct_change()
 
-    # Skewness and kurtosis
+    # 偏度和峰度
     skew = returns.rolling(63).skew()
     kurt = returns.rolling(63).kurt()
 
-    # Test for mean reversion using Hurst exponent
+    # 使用Hurst指数测试均值回归
     hurst = calculate_hurst_exponent(prices_df["close"])
 
-    # Correlation analysis
-    # (would include correlation with related securities in real implementation)
+    # 相关性分析
+    # （实际实现中会包含与相关证券的相关性）
 
-    # Generate signal based on statistical properties
+    # 基于统计属性生成信号
     if hurst < 0.4 and skew.iloc[-1] > 1:
         signal = "bullish"
         confidence = (0.5 - hurst) * 2
@@ -371,9 +371,9 @@ def calculate_stat_arb_signals(prices_df):
 
 def weighted_signal_combination(signals, weights):
     """
-    Combines multiple trading signals using a weighted approach
+    使用加权方法组合多个交易信号
     """
-    # Convert signals to numeric values
+    # 将信号转换为数值
     signal_values = {"bullish": 1, "neutral": 0, "bearish": -1}
 
     weighted_sum = 0
@@ -387,13 +387,13 @@ def weighted_signal_combination(signals, weights):
         weighted_sum += numeric_signal * weight * confidence
         total_confidence += weight * confidence
 
-    # Normalize the weighted sum
+    # 规范化加权和
     if total_confidence > 0:
         final_score = weighted_sum / total_confidence
     else:
         final_score = 0
 
-    # Convert back to signal
+    # 转换回信号
     if final_score > 0.2:
         signal = "bullish"
     elif final_score < -0.2:
@@ -405,7 +405,7 @@ def weighted_signal_combination(signals, weights):
 
 
 def normalize_pandas(obj):
-    """Convert pandas Series/DataFrames to primitive Python types"""
+    """将pandas Series/DataFrame转换为Python原生类型"""
     if isinstance(obj, pd.Series):
         return obj.tolist()
     elif isinstance(obj, pd.DataFrame):
@@ -418,6 +418,7 @@ def normalize_pandas(obj):
 
 
 def calculate_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """计算RSI指标"""
     delta = prices_df["close"].diff()
     gain = (delta.where(delta > 0, 0)).fillna(0)
     loss = (-delta.where(delta < 0, 0)).fillna(0)
@@ -429,6 +430,7 @@ def calculate_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 def calculate_bollinger_bands(prices_df: pd.DataFrame, window: int = 20) -> tuple[pd.Series, pd.Series]:
+    """计算布林带"""
     sma = prices_df["close"].rolling(window).mean()
     std_dev = prices_df["close"].rolling(window).std()
     upper_band = sma + (std_dev * 2)
@@ -438,43 +440,43 @@ def calculate_bollinger_bands(prices_df: pd.DataFrame, window: int = 20) -> tupl
 
 def calculate_ema(df: pd.DataFrame, window: int) -> pd.Series:
     """
-    Calculate Exponential Moving Average
+    计算指数移动平均线
 
-    Args:
-        df: DataFrame with price data
-        window: EMA period
+    参数：
+        df: 包含价格数据的DataFrame
+        window: EMA周期
 
-    Returns:
-        pd.Series: EMA values
+    返回：
+        pd.Series: EMA值
     """
     return df["close"].ewm(span=window, adjust=False).mean()
 
 
 def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     """
-    Calculate Average Directional Index (ADX)
+    计算平均趋向指数（ADX）
 
-    Args:
-        df: DataFrame with OHLC data
-        period: Period for calculations
+    参数：
+        df: 包含OHLC数据的DataFrame
+        period: 计算周期
 
-    Returns:
-        DataFrame with ADX values
+    返回：
+        包含ADX值的DataFrame
     """
-    # Calculate True Range
+    # 计算真实波幅
     df["high_low"] = df["high"] - df["low"]
     df["high_close"] = abs(df["high"] - df["close"].shift())
     df["low_close"] = abs(df["low"] - df["close"].shift())
     df["tr"] = df[["high_low", "high_close", "low_close"]].max(axis=1)
 
-    # Calculate Directional Movement
+    # 计算方向移动
     df["up_move"] = df["high"] - df["high"].shift()
     df["down_move"] = df["low"].shift() - df["low"]
 
     df["plus_dm"] = np.where((df["up_move"] > df["down_move"]) & (df["up_move"] > 0), df["up_move"], 0)
     df["minus_dm"] = np.where((df["down_move"] > df["up_move"]) & (df["down_move"] > 0), df["down_move"], 0)
 
-    # Calculate ADX
+    # 计算ADX
     df["+di"] = 100 * (df["plus_dm"].ewm(span=period).mean() / df["tr"].ewm(span=period).mean())
     df["-di"] = 100 * (df["minus_dm"].ewm(span=period).mean() / df["tr"].ewm(span=period).mean())
     df["dx"] = 100 * abs(df["+di"] - df["-di"]) / (df["+di"] + df["-di"])
@@ -485,14 +487,14 @@ def calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """
-    Calculate Average True Range
+    计算平均真实波幅
 
-    Args:
-        df: DataFrame with OHLC data
-        period: Period for ATR calculation
+    参数：
+        df: 包含OHLC数据的DataFrame
+        period: ATR计算周期
 
-    Returns:
-        pd.Series: ATR values
+    返回：
+        pd.Series: ATR值
     """
     high_low = df["high"] - df["low"]
     high_close = abs(df["high"] - df["close"].shift())
@@ -506,26 +508,26 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 def calculate_hurst_exponent(price_series: pd.Series, max_lag: int = 20) -> float:
     """
-    Calculate Hurst Exponent to determine long-term memory of time series
-    H < 0.5: Mean reverting series
-    H = 0.5: Random walk
-    H > 0.5: Trending series
+    计算Hurst指数以确定时间序列的长期记忆性
+    H < 0.5: 均值回归序列
+    H = 0.5: 随机游走
+    H > 0.5: 趋势序列
 
-    Args:
-        price_series: Array-like price data
-        max_lag: Maximum lag for R/S calculation
+    参数：
+        price_series: 类数组价格数据
+        max_lag: R/S计算的最大滞后
 
-    Returns:
-        float: Hurst exponent
+    返回：
+        float: Hurst指数
     """
     lags = range(2, max_lag)
-    # Add small epsilon to avoid log(0)
+    # 添加小epsilon避免log(0)
     tau = [max(1e-8, np.sqrt(np.std(np.subtract(price_series[lag:], price_series[:-lag])))) for lag in lags]
 
-    # Return the Hurst exponent from linear fit
+    # 从线性拟合返回Hurst指数
     try:
         reg = np.polyfit(np.log(lags), np.log(tau), 1)
-        return reg[0]  # Hurst exponent is the slope
+        return reg[0]  # Hurst指数是斜率
     except (ValueError, RuntimeWarning):
-        # Return 0.5 (random walk) if calculation fails
+        # 如果计算失败返回0.5（随机游走）
         return 0.5
