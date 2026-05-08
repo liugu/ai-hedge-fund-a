@@ -289,14 +289,34 @@ class AKShareDataSource(AStockDataSource):
                 logger.warning(f"AKShare未找到财务指标: {ticker}")
                 return []
 
-            # 获取列名（日期列）
-            date_columns = [col for col in df.columns if col not in ["选股", "指标"]]
+            # 获取列名（日期列）- 过滤掉非日期列
+            date_columns = []
+            for col in df.columns:
+                if col in ["选股", "指标"]:
+                    continue
+                # 检查是否为日期格式（YYYYMMDD）
+                if isinstance(col, str) and len(col) == 8 and col.isdigit():
+                    date_columns.append(col)
+
+            # 创建指标到行的映射
+            indicator_col = "指标"
+            indicator_map = {}
+            for _, row in df.iterrows():
+                indicator_name = str(row[indicator_col])
+                indicator_map[indicator_name] = row
 
             metrics_list = []
-            for i, date_col in enumerate(date_columns[:limit]):
+            for date_col in date_columns[:limit]:
                 try:
-                    # 获取该日期的数据行
-                    row_data = df.set_index("指标")[date_col]
+                    # 辅助函数：获取指标值
+                    def get_value(name_patterns: list) -> float:
+                        for pattern in name_patterns:
+                            for ind_name, row in indicator_map.items():
+                                if pattern in ind_name:
+                                    val = row.get(date_col)
+                                    if val is not None and not pd.isna(val):
+                                        return self._safe_float(val)
+                        return None
 
                     metrics = FinancialMetrics(
                         ticker=ticker,
@@ -305,18 +325,18 @@ class AKShareDataSource(AStockDataSource):
                         currency="CNY",
                         market_cap=None,
                         enterprise_value=None,
-                        price_to_earnings_ratio=self._safe_float(row_data.get("市盈率")),
-                        price_to_book_ratio=self._safe_float(row_data.get("市净率")),
-                        price_to_sales_ratio=self._safe_float(row_data.get("市销率")),
+                        price_to_earnings_ratio=get_value(["市盈率"]),
+                        price_to_book_ratio=get_value(["市净率"]),
+                        price_to_sales_ratio=get_value(["市销率"]),
                         enterprise_value_to_ebitda_ratio=None,
                         enterprise_value_to_revenue_ratio=None,
                         free_cash_flow_yield=None,
                         peg_ratio=None,
-                        gross_margin=self._safe_float(row_data.get("销售毛利率")),
-                        operating_margin=self._safe_float(row_data.get("营业利润率")),
-                        net_margin=self._safe_float(row_data.get("销售净利率")),
-                        return_on_equity=self._safe_float(row_data.get("净资产收益率")),
-                        return_on_assets=self._safe_float(row_data.get("总资产净利润率")),
+                        gross_margin=get_value(["毛利率"]),
+                        operating_margin=get_value(["营业利润率"]),
+                        net_margin=get_value(["净利率", "销售净利率"]),
+                        return_on_equity=get_value(["净资产收益率", "ROE"]),
+                        return_on_assets=get_value(["总资产净利润率", "ROA"]),
                         return_on_invested_capital=None,
                         asset_turnover=None,
                         inventory_turnover=None,
@@ -324,11 +344,11 @@ class AKShareDataSource(AStockDataSource):
                         days_sales_outstanding=None,
                         operating_cycle=None,
                         working_capital_turnover=None,
-                        current_ratio=self._safe_float(row_data.get("流动比率")),
-                        quick_ratio=self._safe_float(row_data.get("速动比率")),
+                        current_ratio=get_value(["流动比率"]),
+                        quick_ratio=get_value(["速动比率"]),
                         cash_ratio=None,
                         operating_cash_flow_ratio=None,
-                        debt_to_equity=self._safe_float(row_data.get("资产负债率")),
+                        debt_to_equity=get_value(["资产负债率"]),
                         debt_to_assets=None,
                         interest_coverage=None,
                         revenue_growth=None,
@@ -339,8 +359,8 @@ class AKShareDataSource(AStockDataSource):
                         operating_income_growth=None,
                         ebitda_growth=None,
                         payout_ratio=None,
-                        earnings_per_share=self._safe_float(row_data.get("每股收益")),
-                        book_value_per_share=self._safe_float(row_data.get("每股净资产")),
+                        earnings_per_share=get_value(["每股收益"]),
+                        book_value_per_share=get_value(["每股净资产"]),
                         free_cash_flow_per_share=None,
                     )
                     metrics_list.append(metrics)
