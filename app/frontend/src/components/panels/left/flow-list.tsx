@@ -39,12 +39,12 @@ export function FlowList({
   // Only consider a flow active if the current active tab is a flow tab with that flow's ID
   const getActiveFlowId = (): number | null => {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
-    
+
     // If no active tab or active tab is not a flow tab, no flow should be active
     if (!activeTab || activeTab.type !== 'flow') {
       return null;
     }
-    
+
     // Return the flow ID from the active flow tab
     return activeTab.flow?.id || null;
   };
@@ -53,27 +53,27 @@ export function FlowList({
 
   return (
     <div className="flex-grow overflow-auto text-primary scrollbar-thin scrollbar-thumb-ramp-grey-700">
-      <SearchBox 
-        value={searchQuery} 
+      <SearchBox
+        value={searchQuery}
         onChange={onSearchChange}
-        placeholder="Search flows..."
+        placeholder="搜索工作流..."
       />
-      
+
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="text-muted-foreground text-sm">Loading flows...</div>
+          <div className="text-muted-foreground text-sm">加载工作流...</div>
         </div>
       ) : (
-        <Accordion 
-          type="multiple" 
-          className="w-full" 
-          value={openGroups} 
+        <Accordion
+          type="multiple"
+          className="w-full"
+          value={openGroups}
           onValueChange={onAccordionChange}
         >
           {recentFlows.length > 0 && (
             <FlowItemGroup
               key="recent-flows"
-              title="Recent Flows"
+              title="最近使用"
               flows={recentFlows}
               onLoadFlow={onLoadFlow}
               onDeleteFlow={onDeleteFlow}
@@ -81,11 +81,11 @@ export function FlowList({
               currentFlowId={activeFlowId}
             />
           )}
-          
+
           {templateFlows.length > 0 && (
             <FlowItemGroup
               key="templates"
-              title="Templates"
+              title="模板"
               flows={templateFlows}
               onLoadFlow={onLoadFlow}
               onDeleteFlow={onDeleteFlow}
@@ -101,11 +101,11 @@ export function FlowList({
           {flows.length === 0 ? (
             <div className="space-y-2">
               <FolderOpen size={32} className="mx-auto text-muted-foreground" />
-              <div>No flows saved yet</div>
-              <div className="text-xs">Create your first flow to get started</div>
+              <div>暂无保存的工作流</div>
+              <div className="text-xs">创建第一个工作流开始使用</div>
             </div>
           ) : (
-            'No flows match your search'
+            '未找到匹配的工作流'
           )}
         </div>
       )}

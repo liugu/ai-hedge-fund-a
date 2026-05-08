@@ -26,26 +26,26 @@ export function ComponentList({
 }: ComponentListProps) {
   return (
     <div className="flex-grow overflow-auto text-primary scrollbar-thin scrollbar-thumb-ramp-grey-700">
-      <SearchBox 
-        value={searchQuery} 
+      <SearchBox
+        value={searchQuery}
         onChange={onSearchChange}
-        placeholder="Search components..."
+        placeholder="搜索组件..."
       />
-      
+
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="text-muted-foreground text-sm">Loading components...</div>
+          <div className="text-muted-foreground text-sm">加载组件...</div>
         </div>
       ) : (
-        <Accordion 
-          type="multiple" 
-          className="w-full" 
-          value={openGroups} 
+        <Accordion
+          type="multiple"
+          className="w-full"
+          value={openGroups}
           onValueChange={onAccordionChange}
         >
           {filteredGroups.map(group => (
             <ComponentItemGroup
-              key={group.name} 
+              key={group.name}
               group={group}
               activeItem={activeItem}
             />
@@ -57,11 +57,11 @@ export function ComponentList({
         <div className="text-center py-8 text-muted-foreground text-sm">
           {componentGroups.length === 0 ? (
             <div className="space-y-2">
-              <div>No components available</div>
-              <div className="text-xs">Components will appear here when loaded</div>
+              <div>暂无可用组件</div>
+              <div className="text-xs">组件加载后会显示在这里</div>
             </div>
           ) : (
-            'No components match your search'
+            '未找到匹配的组件'
           )}
         </div>
       )}
