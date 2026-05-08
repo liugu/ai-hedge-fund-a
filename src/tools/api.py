@@ -360,10 +360,13 @@ def get_company_news(
     """从缓存或API获取公司新闻"""
     # 检查是否为A股
     if is_a_stock_ticker(ticker):
-        logger.info(f"A股新闻数据获取: {ticker}")
-        # A股新闻数据可以通过AKShare获取
-        # 这里返回空列表，实际使用时可扩展
-        return []
+        a_stock_api = _get_a_stock_api()
+        if a_stock_api and a_stock_api.is_available():
+            logger.info(f"使用A股数据源获取 {ticker} 新闻数据")
+            return a_stock_api.get_news(ticker, limit=min(limit, 50))
+        else:
+            logger.warning(f"A股数据源不可用，无法获取 {ticker} 新闻数据")
+            return []
 
     # 美股数据获取逻辑
     cache_key = f"{ticker}_{start_date or 'none'}_{end_date}_{limit}"

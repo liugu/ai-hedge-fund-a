@@ -567,6 +567,52 @@ class AKShareDataSource(AStockDataSource):
             logger.error(f"AKShare获取板块数据失败: {e}")
             return []
 
+    def get_news(self, ticker: str, limit: int = 20) -> List[CompanyNews]:
+        """获取A股公司新闻"""
+        if not self.is_available():
+            return []
+
+        # 检查缓存
+        cache_key = self._get_cache_key("news", ticker, limit)
+        cached = self._cache.get(cache_key)
+        if cached:
+            return cached
+
+        try:
+            code = self.normalize_ticker(ticker)
+
+            # 获取个股新闻数据
+            df = self._ak.stock_news_em(symbol=code)
+
+            if df is None or df.empty:
+                logger.warning(f"AKShare未找到新闻: {ticker}")
+                return []
+
+            news_list = []
+            for _, row in df.head(limit).iterrows():
+                try:
+                    news = CompanyNews(
+                        ticker=ticker,
+                        title=str(row.get("新闻标题", "")),
+                        author=None,
+                        source=str(row.get("新闻来源", "")),
+                        date=str(row.get("发布时间", "")),
+                        url=str(row.get("新闻链接", "")),
+                        sentiment=None,
+                    )
+                    news_list.append(news)
+                except Exception as e:
+                    logger.warning(f"解析新闻数据失败: {e}")
+                    continue
+
+            # 缓存结果
+            self._cache.set(cache_key, news_list)
+            return news_list
+
+        except Exception as e:
+            logger.error(f"AKShare获取新闻失败: {ticker} - {e}")
+            return []
+
     def _safe_float(self, value) -> Optional[float]:
         """安全转换为浮点数"""
         if value is None:
@@ -943,6 +989,12 @@ class AStockAPI:
         if not self.is_available():
             return []
         return self._primary_source.get_sectors()
+
+    def get_news(self, ticker: str, limit: int = 20) -> List[CompanyNews]:
+        """获取公司新闻"""
+        if not self.is_available():
+            return []
+        return self._primary_source.get_news(ticker, limit)
 
     @staticmethod
     def is_a_stock_ticker(ticker: str) -> bool:
