@@ -282,41 +282,41 @@ class AKShareDataSource(AStockDataSource):
         try:
             code = self.normalize_ticker(ticker)
 
-            # 获取财务指标数据
-            df = self._ak.stock_financial_analysis_indicator(symbol=code)
+            # 获取财务指标数据 - 使用 stock_financial_abstract
+            df = self._ak.stock_financial_abstract(symbol=code)
 
             if df is None or df.empty:
                 logger.warning(f"AKShare未找到财务指标: {ticker}")
                 return []
 
-            metrics_list = []
-            for i, (_, row) in enumerate(df.iterrows()):
-                if i >= limit:
-                    break
+            # 获取列名（日期列）
+            date_columns = [col for col in df.columns if col not in ["选股", "指标"]]
 
+            metrics_list = []
+            for i, date_col in enumerate(date_columns[:limit]):
                 try:
-                    # 解析日期
-                    report_date = str(row.get("日期", end_date))
+                    # 获取该日期的数据行
+                    row_data = df.set_index("指标")[date_col]
 
                     metrics = FinancialMetrics(
                         ticker=ticker,
-                        report_period=report_date,
+                        report_period=date_col,
                         period=period,
                         currency="CNY",
                         market_cap=None,
                         enterprise_value=None,
-                        price_to_earnings_ratio=self._safe_float(row.get("市盈率")),
-                        price_to_book_ratio=self._safe_float(row.get("市净率")),
-                        price_to_sales_ratio=None,
+                        price_to_earnings_ratio=self._safe_float(row_data.get("市盈率")),
+                        price_to_book_ratio=self._safe_float(row_data.get("市净率")),
+                        price_to_sales_ratio=self._safe_float(row_data.get("市销率")),
                         enterprise_value_to_ebitda_ratio=None,
                         enterprise_value_to_revenue_ratio=None,
                         free_cash_flow_yield=None,
                         peg_ratio=None,
-                        gross_margin=self._safe_float(row.get("销售毛利率")),
-                        operating_margin=self._safe_float(row.get("营业利润率")),
-                        net_margin=self._safe_float(row.get("销售净利率")),
-                        return_on_equity=self._safe_float(row.get("净资产收益率")),
-                        return_on_assets=self._safe_float(row.get("总资产净利润率")),
+                        gross_margin=self._safe_float(row_data.get("销售毛利率")),
+                        operating_margin=self._safe_float(row_data.get("营业利润率")),
+                        net_margin=self._safe_float(row_data.get("销售净利率")),
+                        return_on_equity=self._safe_float(row_data.get("净资产收益率")),
+                        return_on_assets=self._safe_float(row_data.get("总资产净利润率")),
                         return_on_invested_capital=None,
                         asset_turnover=None,
                         inventory_turnover=None,
@@ -324,11 +324,11 @@ class AKShareDataSource(AStockDataSource):
                         days_sales_outstanding=None,
                         operating_cycle=None,
                         working_capital_turnover=None,
-                        current_ratio=self._safe_float(row.get("流动比率")),
-                        quick_ratio=self._safe_float(row.get("速动比率")),
+                        current_ratio=self._safe_float(row_data.get("流动比率")),
+                        quick_ratio=self._safe_float(row_data.get("速动比率")),
                         cash_ratio=None,
                         operating_cash_flow_ratio=None,
-                        debt_to_equity=self._safe_float(row.get("资产负债率")),
+                        debt_to_equity=self._safe_float(row_data.get("资产负债率")),
                         debt_to_assets=None,
                         interest_coverage=None,
                         revenue_growth=None,
@@ -339,8 +339,8 @@ class AKShareDataSource(AStockDataSource):
                         operating_income_growth=None,
                         ebitda_growth=None,
                         payout_ratio=None,
-                        earnings_per_share=self._safe_float(row.get("每股收益")),
-                        book_value_per_share=self._safe_float(row.get("每股净资产")),
+                        earnings_per_share=self._safe_float(row_data.get("每股收益")),
+                        book_value_per_share=self._safe_float(row_data.get("每股净资产")),
                         free_cash_flow_per_share=None,
                     )
                     metrics_list.append(metrics)
@@ -381,6 +381,15 @@ class AKShareDataSource(AStockDataSource):
             # 解析公司信息
             info_dict = dict(zip(df["item"], df["value"]))
 
+            # 处理上市日期格式（AKShare可能返回整数如20010827）
+            listing_date_raw = info_dict.get("上市时间")
+            listing_date = None
+            if listing_date_raw is not None:
+                if isinstance(listing_date_raw, int):
+                    listing_date = str(listing_date_raw)
+                else:
+                    listing_date = str(listing_date_raw)
+
             facts = CompanyFacts(
                 ticker=ticker,
                 name=info_dict.get("公司名称", ""),
@@ -390,7 +399,7 @@ class AKShareDataSource(AStockDataSource):
                 category=None,
                 exchange=self.get_exchange(ticker),
                 is_active=True,
-                listing_date=info_dict.get("上市时间"),
+                listing_date=listing_date,
                 location=info_dict.get("地区"),
                 market_cap=None,
                 number_of_employees=None,
@@ -540,7 +549,14 @@ class AKShareDataSource(AStockDataSource):
 
     def _safe_float(self, value) -> Optional[float]:
         """安全转换为浮点数"""
-        if value is None or value == "" or value == "-":
+        if value is None:
+            return None
+        # 处理 pandas Series
+        if isinstance(value, pd.Series):
+            if value.empty:
+                return None
+            value = value.iloc[0]
+        if value == "" or value == "-":
             return None
         try:
             # 处理百分比格式
