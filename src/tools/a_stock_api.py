@@ -891,6 +891,87 @@ class TushareDataSource(AStockDataSource):
             return None
 
 
+class TencentRealtimeSource(AStockDataSource):
+    """腾讯财经实时行情数据源 - 用于实时数据补充"""
+
+    def __init__(self):
+        super().__init__()
+        self._tencent = None
+        try:
+            from src.utils.tencent_api import get_stock_quote, get_stock_quotes
+            self._get_quote = get_stock_quote
+            self._get_quotes = get_stock_quotes
+            self._tencent = True
+            logger.info("腾讯财经实时数据源初始化成功")
+        except ImportError as e:
+            logger.warning(f"腾讯API未导入: {e}")
+        except Exception as e:
+            logger.warning(f"腾讯数据源初始化失败: {e}")
+
+    def is_available(self) -> bool:
+        return self._tencent is not None
+
+    def get_realtime_quote(self, ticker: str) -> Optional[Dict]:
+        """获取实时行情"""
+        if not self.is_available():
+            return None
+        try:
+            quote = self._get_quote(ticker)
+            if quote:
+                return {
+                    'code': quote.code,
+                    'name': quote.name,
+                    'price': quote.price,
+                    'change': quote.change,
+                    'change_pct': quote.change_pct,
+                    'open': quote.open,
+                    'high': quote.high,
+                    'low': quote.low,
+                    'volume': quote.volume,
+                    'amount': quote.amount,
+                    'prev_close': quote.prev_close,
+                }
+        except Exception as e:
+            logger.error(f"腾讯获取实时行情失败: {ticker} - {e}")
+        return None
+
+    def get_realtime_quotes(self, tickers: List[str]) -> Dict[str, Dict]:
+        """批量获取实时行情"""
+        if not self.is_available():
+            return {}
+        try:
+            quotes = self._get_quotes(tickers)
+            result = {}
+            for code, q in quotes.items():
+                result[code] = {
+                    'code': q.code,
+                    'name': q.name,
+                    'price': q.price,
+                    'change': q.change,
+                    'change_pct': q.change_pct,
+                    'open': q.open,
+                    'high': q.high,
+                    'low': q.low,
+                    'volume': q.volume,
+                    'amount': q.amount,
+                    'prev_close': q.prev_close,
+                }
+            return result
+        except Exception as e:
+            logger.error(f"腾讯批量获取实时行情失败: {e}")
+        return {}
+
+    # 实现抽象基类方法（腾讯API主要用于实时数据，历史数据返回空）
+    def get_prices(self, ticker: str, start_date: str, end_date: str) -> List[Price]:
+        return []
+
+    def get_financial_metrics(self, ticker: str, end_date: str, period: str = "ttm", limit: int = 10) -> List[FinancialMetrics]:
+        return []
+
+    def get_company_facts(self, ticker: str) -> Optional[CompanyFacts]:
+        return None
+
+
 class AStockAPI:
     """
     A股数据API统一接口
@@ -898,6 +979,7 @@ class AStockAPI:
     自动选择可用的数据源，优先级：
     1. Tushare Pro（如果配置了API密钥）
     2. AKShare（免费开源）
+    3. 腾讯财经（实时行情补充）
     """
 
     def __init__(self, data_source: str = None):
@@ -909,6 +991,7 @@ class AStockAPI:
         """
         self._sources = []
         self._primary_source = None
+        self._realtime_source = None
 
         # 根据配置或自动选择数据源
         config_source = data_source or os.environ.get("A_STOCK_DATA_SOURCE", "auto")
@@ -926,6 +1009,11 @@ class AStockAPI:
                 self._sources.append(akshare)
                 if config_source == "akshare":
                     self._primary_source = akshare
+
+        # 添加腾讯实时数据源
+        tencent = TencentRealtimeSource()
+        if tencent.is_available():
+            self._realtime_source = tencent
 
         # 设置默认数据源
         if self._primary_source is None and self._sources:
@@ -995,6 +1083,18 @@ class AStockAPI:
         if not self.is_available():
             return []
         return self._primary_source.get_news(ticker, limit)
+
+    def get_realtime_quote(self, ticker: str) -> Optional[Dict]:
+        """获取实时行情（使用腾讯API）"""
+        if self._realtime_source:
+            return self._realtime_source.get_realtime_quote(ticker)
+        return None
+
+    def get_realtime_quotes(self, tickers: List[str]) -> Dict[str, Dict]:
+        """批量获取实时行情（使用腾讯API）"""
+        if self._realtime_source:
+            return self._realtime_source.get_realtime_quotes(tickers)
+        return {}
 
     @staticmethod
     def is_a_stock_ticker(ticker: str) -> bool:
