@@ -20,6 +20,9 @@ from src.agents.mohnish_pabrai import mohnish_pabrai_agent
 from src.agents.nassim_taleb import nassim_taleb_agent
 from src.agents.news_sentiment import news_sentiment_agent
 from src.agents.growth_agent import growth_analyst_agent
+from src.agents.northbound_flow import northbound_flow_agent
+from src.agents.a_stock_technical import a_stock_technical_agent
+from src.agents.a_stock_fund_flow import a_stock_fund_flow_agent
 
 # 分析师配置 - 唯一数据源
 ANALYST_CONFIG = {
@@ -174,6 +177,30 @@ ANALYST_CONFIG = {
         "agent_func": valuation_analyst_agent,
         "type": "analyst",
         "order": 18,
+    },
+    "northbound_flow": {
+        "display_name": "北向资金分析师",
+        "description": "外资流向专家",
+        "investing_style": "跟踪北向资金流向，分析外资对A股的态度和配置变化。北向资金被视为'聪明钱'，其流向对市场有重要参考价值。",
+        "agent_func": northbound_flow_agent,
+        "type": "analyst",
+        "order": 19,
+    },
+    "a_stock_technical": {
+        "display_name": "A股技术分析师",
+        "description": "A股技术分析专家",
+        "investing_style": "运用K线形态、均线系统、MACD、KDJ、RSI等技术指标，结合成交量分析，识别A股市场的买卖时机。注重趋势跟踪和形态识别。",
+        "agent_func": a_stock_technical_agent,
+        "type": "analyst",
+        "order": 20,
+    },
+    "a_stock_fund_flow": {
+        "display_name": "A股资金流向分析师",
+        "description": "A股资金流向专家",
+        "investing_style": "跟踪主力资金、散户资金流向，分析资金分歧和趋势。主力资金被视为市场'聪明钱'，其流向对股价有重要影响。散户资金流向可作为反向指标参考。",
+        "agent_func": a_stock_fund_flow_agent,
+        "type": "analyst",
+        "order": 21,
     },
 }
 
