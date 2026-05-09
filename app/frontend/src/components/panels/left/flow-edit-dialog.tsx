@@ -38,7 +38,7 @@ export function FlowEditDialog({ flow, isOpen, onClose, onFlowUpdated }: FlowEdi
 
   const handleSave = async () => {
     if (!flow || !name.trim()) {
-      error('Flow name is required');
+      error('工作流名称不能为空');
       return;
     }
 
@@ -48,16 +48,16 @@ export function FlowEditDialog({ flow, isOpen, onClose, onFlowUpdated }: FlowEdi
         name: name.trim(),
         description: description.trim() || undefined,
       });
-      
+
       // Update the tab title if it's currently open
       updateFlowTabTitle(flow.id, name.trim());
-      
-      success(`"${name}" updated!`);
+
+      success(`"${name}" 更新成功！`);
       onFlowUpdated();
       onClose();
     } catch (err) {
       console.error('Failed to update flow:', err);
-      error('Failed to update flow');
+      error('更新工作流失败');
     } finally {
       setIsLoading(false);
     }
@@ -85,37 +85,37 @@ export function FlowEditDialog({ flow, isOpen, onClose, onFlowUpdated }: FlowEdi
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Flow</DialogTitle>
+          <DialogTitle>编辑工作流</DialogTitle>
           <DialogDescription>
-            Update the name and description for your flow.
+            更新工作流的名称和描述。
           </DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <label htmlFor="name" className="text-sm font-medium">
-              Name
+              名称
             </label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter flow name"
+              placeholder="输入工作流名称"
               className="col-span-3"
             />
           </div>
-          
+
           <div className="grid gap-2">
             <label htmlFor="description" className="text-sm font-medium">
-              Description
+              描述
             </label>
             <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter flow description (optional)"
+              placeholder="输入工作流描述（可选）"
               className="col-span-3"
             />
           </div>
@@ -123,13 +123,13 @@ export function FlowEditDialog({ flow, isOpen, onClose, onFlowUpdated }: FlowEdi
         
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>
-            Cancel
+            取消
           </Button>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={isLoading || !name.trim()}
           >
-            {isLoading ? 'Saving...' : 'Save Changes'}
+            {isLoading ? '保存中...' : '保存更改'}
           </Button>
         </DialogFooter>
       </DialogContent>
