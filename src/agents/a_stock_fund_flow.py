@@ -114,9 +114,10 @@ def get_fund_flow_data(ticker: str) -> dict:
         flow = EastMoneyAPI.get_fund_flow(ticker)
 
         if not flow:
+            logger.warning(f"资金流向数据为空: {ticker}")
             return None
 
-        return {
+        result = {
             "main_net_inflow": flow.main_net_inflow,  # 主力净流入（万）
             "super_net_inflow": flow.super_net_inflow,  # 超大单净流入
             "big_net_inflow": flow.big_net_inflow,  # 大单净流入
@@ -125,9 +126,11 @@ def get_fund_flow_data(ticker: str) -> dict:
             "retail_net_inflow": flow.small_net_inflow + flow.medium_net_inflow,  # 散户净流入
             "name": flow.name,
         }
+        logger.info(f"成功获取资金流向数据: {ticker}, 主力净流入: {flow.main_net_inflow:.2f}万")
+        return result
 
     except Exception as e:
-        logger.error(f"获取资金流向数据失败: {ticker} - {e}")
+        logger.error(f"获取资金流向数据失败: {ticker} - {e}", exc_info=True)
         return None
 
 

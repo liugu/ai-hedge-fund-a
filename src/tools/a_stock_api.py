@@ -305,15 +305,53 @@ class AKShareDataSource(AStockDataSource):
                 indicator_name = str(row[indicator_col])
                 indicator_map[indicator_name] = row
 
+            # 辅助函数：获取指标值（支持多种名称匹配）
+            def get_value(name_patterns: list) -> float:
+                for pattern in name_patterns:
+                    for ind_name, row in indicator_map.items():
+                        if pattern in ind_name:
+                            val = row.get(date_columns[0]) if date_columns else None
+                            if val is not None and not pd.isna(val):
+                                return self._safe_float(val)
+                return None
+
+            # 尝试获取实时估值数据（市盈率、市净率等）
+            realtime_pe = None
+            realtime_pb = None
+            realtime_ps = None
+            market_cap = None
+            try:
+                from src.utils.eastmoney_api import EastMoneyAPI
+                stock_info = EastMoneyAPI.get_stock_info(code)
+                if stock_info:
+                    # 东方财富API返回的数据需要处理
+                    # f162: 市盈率（可能需要除以100）
+                    pe_raw = self._safe_float(stock_info.get('f162'))
+                    if pe_raw and pe_raw > 1000:  # 如果市盈率超过1000，可能需要除以100
+                        realtime_pe = pe_raw / 100
+                    else:
+                        realtime_pe = pe_raw
+
+                    # f167: 市净率（可能需要除以100）
+                    pb_raw = self._safe_float(stock_info.get('f167'))
+                    if pb_raw and pb_raw > 50:  # 如果市净率超过50，可能需要除以100
+                        realtime_pb = pb_raw / 100
+                    else:
+                        realtime_pb = pb_raw
+
+                    market_cap = self._safe_float(stock_info.get('f116'))  # 总市值
+            except Exception as e:
+                logger.debug(f"获取实时估值数据失败: {e}")
+
             metrics_list = []
             for date_col in date_columns[:limit]:
                 try:
-                    # 辅助函数：获取指标值
-                    def get_value(name_patterns: list) -> float:
+                    # 更新辅助函数使用当前日期列
+                    def get_value_for_date(name_patterns: list, date: str) -> float:
                         for pattern in name_patterns:
                             for ind_name, row in indicator_map.items():
                                 if pattern in ind_name:
-                                    val = row.get(date_col)
+                                    val = row.get(date)
                                     if val is not None and not pd.isna(val):
                                         return self._safe_float(val)
                         return None
@@ -323,45 +361,51 @@ class AKShareDataSource(AStockDataSource):
                         report_period=date_col,
                         period=period,
                         currency="CNY",
-                        market_cap=None,
+                        market_cap=market_cap,
                         enterprise_value=None,
-                        price_to_earnings_ratio=get_value(["市盈率"]),
-                        price_to_book_ratio=get_value(["市净率"]),
-                        price_to_sales_ratio=get_value(["市销率"]),
+                        # 估值指标 - 优先使用实时数据
+                        price_to_earnings_ratio=realtime_pe or get_value_for_date(["市盈率", "市盈"], date_col),
+                        price_to_book_ratio=realtime_pb or get_value_for_date(["市净率", "市净"], date_col),
+                        price_to_sales_ratio=realtime_ps or get_value_for_date(["市销率", "市销"], date_col),
                         enterprise_value_to_ebitda_ratio=None,
                         enterprise_value_to_revenue_ratio=None,
                         free_cash_flow_yield=None,
                         peg_ratio=None,
-                        gross_margin=get_value(["毛利率"]),
-                        operating_margin=get_value(["营业利润率"]),
-                        net_margin=get_value(["净利率", "销售净利率"]),
-                        return_on_equity=get_value(["净资产收益率", "ROE"]),
-                        return_on_assets=get_value(["总资产净利润率", "ROA"]),
+                        # 盈利能力指标
+                        gross_margin=get_value_for_date(["毛利率"], date_col),
+                        operating_margin=get_value_for_date(["营业利润率"], date_col),
+                        net_margin=get_value_for_date(["净利率", "销售净利率"], date_col),
+                        return_on_equity=get_value_for_date(["净资产收益率", "ROE"], date_col),
+                        return_on_assets=get_value_for_date(["总资产净利润率", "ROA", "总资产收益率"], date_col),
                         return_on_invested_capital=None,
-                        asset_turnover=None,
-                        inventory_turnover=None,
-                        receivables_turnover=None,
+                        # 运营效率指标
+                        asset_turnover=get_value_for_date(["总资产周转率"], date_col),
+                        inventory_turnover=get_value_for_date(["存货周转率"], date_col),
+                        receivables_turnover=get_value_for_date(["应收账款周转率"], date_col),
                         days_sales_outstanding=None,
                         operating_cycle=None,
                         working_capital_turnover=None,
-                        current_ratio=get_value(["流动比率"]),
-                        quick_ratio=get_value(["速动比率"]),
+                        # 偿债能力指标
+                        current_ratio=get_value_for_date(["流动比率"], date_col),
+                        quick_ratio=get_value_for_date(["速动比率"], date_col),
                         cash_ratio=None,
                         operating_cash_flow_ratio=None,
-                        debt_to_equity=get_value(["资产负债率"]),
+                        debt_to_equity=get_value_for_date(["资产负债率"], date_col),
                         debt_to_assets=None,
-                        interest_coverage=None,
-                        revenue_growth=None,
-                        earnings_growth=None,
+                        interest_coverage=get_value_for_date(["利息保障倍数"], date_col),
+                        # 成长指标
+                        revenue_growth=get_value_for_date(["营业总收入同比增长", "营业收入同比增长"], date_col),
+                        earnings_growth=get_value_for_date(["归属母公司股东的净利润同比增长"], date_col),
                         book_value_growth=None,
                         earnings_per_share_growth=None,
                         free_cash_flow_growth=None,
                         operating_income_growth=None,
                         ebitda_growth=None,
                         payout_ratio=None,
-                        earnings_per_share=get_value(["每股收益"]),
-                        book_value_per_share=get_value(["每股净资产"]),
-                        free_cash_flow_per_share=None,
+                        # 每股指标
+                        earnings_per_share=get_value_for_date(["每股收益"], date_col),
+                        book_value_per_share=get_value_for_date(["每股净资产"], date_col),
+                        free_cash_flow_per_share=get_value_for_date(["每股经营现金流"], date_col),
                     )
                     metrics_list.append(metrics)
                 except Exception as e:

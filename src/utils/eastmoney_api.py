@@ -73,7 +73,8 @@ try {{
             capture_output=True,
             text=True,
             timeout=timeout + 10,
-            encoding='utf-8'
+            encoding='utf-8',
+            errors='ignore'  # 忽略编码错误
         )
 
         if result.returncode != 0:
@@ -108,11 +109,16 @@ try {{
             capture_output=True,
             text=True,
             timeout=timeout + 10,
-            encoding='utf-8'
+            encoding='utf-8',
+            errors='ignore'  # 忽略编码错误
         )
 
         if result.returncode != 0:
             logger.error(f"PowerShell JSON请求失败: {result.stderr}")
+            return None
+
+        if not result.stdout or result.stdout.strip() == '':
+            logger.error(f"PowerShell JSON请求返回空内容")
             return None
 
         return json.loads(result.stdout)
@@ -132,51 +138,108 @@ class EastMoneyAPI:
     """东方财富数据API"""
 
     @staticmethod
+    def _normalize_code(code: str) -> str:
+        """
+        标准化股票代码，去除后缀
+
+        参数:
+            code: 股票代码（可能带后缀如 000626.SZ 或 600519.SH）
+
+        返回:
+            纯股票代码（如 000626 或 600519）
+        """
+        # 去除后缀 (.SZ, .SH, .BJ 等)
+        if '.' in code:
+            code = code.split('.')[0]
+        return code.strip()
+
+    @staticmethod
     def get_kline_data(code: str, period: str = 'day', count: int = 100) -> List[KLineData]:
         """
         获取K线数据
 
         参数:
-            code: 股票代码
+            code: 股票代码（支持带后缀格式如 000626.SZ）
             period: 周期 (day/week/month)
             count: 获取数量
         """
-        # 确定市场代码
+        # 标准化代码
+        code = EastMoneyAPI._normalize_code(code)
+
+        # 确定市场代码 (sz或sh)
         if code.startswith('6'):
-            secid = f"1.{code}"
+            market = 'sh'
         else:
-            secid = f"0.{code}"
+            market = 'sz'
 
-        # K线周期映射
-        klt_map = {'day': '101', 'week': '102', 'month': '103'}
-        klt = klt_map.get(period, '101')
+        # K线周期映射 (腾讯API格式)
+        klt_map = {'day': 'day', 'week': 'week', 'month': 'month'}
+        klt = klt_map.get(period, 'day')
 
-        url = f"https://push2his.eastmoney.com/api/qt/stock/kline/get?secid={secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt={klt}&fqt=1&end=20500101&lmt={count}"
+        # 使用腾讯API获取K线数据
+        # 参数格式: param=市场代码+股票代码,周期,开始日期,结束日期,数量,复权类型
+        # 例如: param=sz000626,day,,,10,qfq
+        url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={market}{code},{klt},,,{count},qfq"
 
-        data = fetch_json_via_powershell(url)
-        if not data or 'data' not in data or 'klines' not in data['data']:
+        try:
+            result = fetch_via_powershell(url)
+            if not result:
+                return []
+
+            data = json.loads(result)
+            if not data or 'data' not in data:
+                return []
+
+            stock_data = data.get('data', {})
+            if not stock_data:
+                return []
+
+            # stock_data是一个字典，key是股票代码
+            stock_key = f'{market}{code}'
+            if stock_key not in stock_data:
+                # 尝试其他可能的key
+                stock_key = list(stock_data.keys())[0] if stock_data else None
+                if not stock_key:
+                    return []
+
+            stock_info = stock_data.get(stock_key, {})
+            klines_raw = stock_info.get('qfqday', []) or stock_info.get('day', [])
+
+            if not klines_raw:
+                return []
+
+            klines = []
+            for item in klines_raw[-count:]:  # 只取最近count条
+                try:
+                    # 腾讯API格式: [日期, 开盘, 收盘, 最高, 最低, 成交量]
+                    klines.append(KLineData(
+                        date=item[0],
+                        open=float(item[1]) if item[1] else 0,
+                        close=float(item[2]) if item[2] else 0,
+                        high=float(item[3]) if item[3] else 0,
+                        low=float(item[4]) if item[4] else 0,
+                        volume=int(float(item[5])) if item[5] else 0,
+                        amount=0,  # 腾讯API不提供成交额
+                        change_pct=0,  # 需要计算
+                        turnover_rate=0,
+                    ))
+                except Exception as e:
+                    logger.warning(f"解析K线数据失败: {e}")
+                    continue
+
+            # 计算涨跌幅
+            for i in range(1, len(klines)):
+                if klines[i-1].close > 0:
+                    klines[i].change_pct = round((klines[i].close - klines[i-1].close) / klines[i-1].close * 100, 2)
+
+            return klines
+
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON解析失败: {e}")
             return []
-
-        klines = []
-        for line in data['data']['klines']:
-            try:
-                parts = line.split(',')
-                klines.append(KLineData(
-                    date=parts[0],
-                    open=float(parts[1]) if parts[1] else 0,
-                    close=float(parts[2]) if parts[2] else 0,
-                    high=float(parts[3]) if parts[3] else 0,
-                    low=float(parts[4]) if parts[4] else 0,
-                    volume=int(float(parts[5])) if parts[5] else 0,
-                    amount=float(parts[6]) if parts[6] else 0,
-                    change_pct=float(parts[7]) if len(parts) > 7 and parts[7] else 0,
-                    turnover_rate=float(parts[8]) if len(parts) > 8 and parts[8] else 0,
-                ))
-            except Exception as e:
-                logger.warning(f"解析K线数据失败: {e}")
-                continue
-
-        return klines
+        except Exception as e:
+            logger.error(f"获取K线数据失败: {e}")
+            return []
 
     @staticmethod
     def get_fund_flow(code: str) -> Optional[FundFlow]:
@@ -184,8 +247,11 @@ class EastMoneyAPI:
         获取资金流向数据
 
         参数:
-            code: 股票代码
+            code: 股票代码（支持带后缀格式如 000626.SZ）
         """
+        # 标准化代码
+        code = EastMoneyAPI._normalize_code(code)
+
         # 确定市场代码
         if code.startswith('6'):
             secid = f"1.{code}"
@@ -199,7 +265,9 @@ class EastMoneyAPI:
             return None
 
         try:
-            info = data['data'].get('info', {})
+            info = data['data'].get('info', {}) or {}
+            # info可能为空，从data中获取name
+            name = info.get('name', '') or data['data'].get('name', '')
             flows = data['data'].get('klines', [])
             if not flows:
                 return None
@@ -208,15 +276,17 @@ class EastMoneyAPI:
             latest = flows[-1] if isinstance(flows, list) else flows
             if isinstance(latest, str):
                 parts = latest.split(',')
+                # 数据格式: 日期,主力净流入,超大单净流入,大单净流入,中单净流入,小单净流入
+                # 单位是元，需要转换为万元
                 return FundFlow(
                     ticker=code,
-                    name=info.get('name', ''),
-                    main_net_inflow=float(parts[1]) if len(parts) > 1 else 0,
-                    retail_net_inflow=float(parts[5]) if len(parts) > 5 else 0,
-                    super_net_inflow=float(parts[1]) if len(parts) > 1 else 0,
-                    big_net_inflow=float(parts[2]) if len(parts) > 2 else 0,
-                    medium_net_inflow=float(parts[3]) if len(parts) > 3 else 0,
-                    small_net_inflow=float(parts[4]) if len(parts) > 4 else 0,
+                    name=name,
+                    main_net_inflow=float(parts[1]) / 10000 if len(parts) > 1 and parts[1] else 0,
+                    retail_net_inflow=(float(parts[4]) + float(parts[5])) / 10000 if len(parts) > 5 else 0,
+                    super_net_inflow=float(parts[2]) / 10000 if len(parts) > 2 and parts[2] else 0,
+                    big_net_inflow=float(parts[3]) / 10000 if len(parts) > 3 and parts[3] else 0,
+                    medium_net_inflow=float(parts[4]) / 10000 if len(parts) > 4 and parts[4] else 0,
+                    small_net_inflow=float(parts[5]) / 10000 if len(parts) > 5 and parts[5] else 0,
                 )
         except Exception as e:
             logger.error(f"解析资金流向失败: {e}")
@@ -293,11 +363,13 @@ class EastMoneyAPI:
         批量获取实时行情
 
         参数:
-            codes: 股票代码列表
+            codes: 股票代码列表（支持带后缀格式如 000626.SZ）
         """
         # 构建secid列表
         secids = []
         for code in codes:
+            # 标准化代码
+            code = EastMoneyAPI._normalize_code(code)
             if code.startswith('6'):
                 secids.append(f"1.{code}")
             else:
@@ -332,6 +404,9 @@ class EastMoneyAPI:
     @staticmethod
     def get_stock_info(code: str) -> Optional[Dict]:
         """获取股票基本信息"""
+        # 标准化代码
+        code = EastMoneyAPI._normalize_code(code)
+
         if code.startswith('6'):
             secid = f"1.{code}"
         else:

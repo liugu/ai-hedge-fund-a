@@ -5,7 +5,11 @@
 1. 均线策略
 2. 动量策略
 3. 均值回归策略
-4. 因子策略
+4. RSI策略
+5. 布林带策略
+6. MACD策略
+7. KDJ策略
+8. 多因子策略
 """
 
 import numpy as np
@@ -13,6 +17,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
